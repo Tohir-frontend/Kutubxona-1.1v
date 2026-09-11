@@ -456,6 +456,7 @@ HTML = """
             <p class="qator yuklagan"><span>{% if kitob.telegram_havola %}Telegram kanal{% elif kitob.fayl %}MB: {{ fayl_hajmi(kitob.fayl) }}{% endif %}</span><span>{{ foydalanuvchi_ismi(kitob.tomonidan) }}</span></p>
             <div class="tugmalar">
               {% if kitob.telegram_havola %}
+                <a class="btn btn-ochish" href="{{ kitob.telegram_havola }}" target="_blank" rel="noopener">O'qish</a>
                 <a class="btn btn-yuklash" href="{{ kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
               {% elif kitob.fayl %}
                 <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + kitob.fayl) }}" download>Yuklab</a>
@@ -531,6 +532,7 @@ HTML = """
           <p class="qator"><span>{{ item.kitob.muallif }}</span><span>{{ item.kitob.yili }}</span></p>
           <div class="tugmalar">
             {% if item.kitob.telegram_havola %}
+              <a class="btn btn-ochish" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">O'qish</a>
               <a class="btn btn-yuklash" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
             {% elif item.kitob.fayl %}
               <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + item.kitob.fayl) }}" download>Yuklab</a>
