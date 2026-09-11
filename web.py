@@ -459,6 +459,7 @@ HTML = """
                 <a class="btn btn-ochish" href="{{ kitob.telegram_havola }}" target="_blank" rel="noopener">O'qish</a>
                 <a class="btn btn-yuklash" href="{{ kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
               {% elif kitob.fayl %}
+                <a class="btn btn-ochish" href="{{ url_for('ochish', bolim=bolim, idx=loop.index0) }}">O'qish</a>
                 <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + kitob.fayl) }}" download>Yuklab</a>
               {% endif %}
               {% if foydalanuvchi and (kitob.tomonidan == foydalanuvchi.email or foydalanuvchi.rol == 'admin') %}
@@ -500,6 +501,15 @@ HTML = """
           <small style="color:#1a3a6e">{{ item.bolim }}</small>
           <h3>{{ item.kitob.nomi }}</h3>
           <p>{{ item.kitob.muallif }} ({{ item.kitob.yili }})</p>
+          <div class="tugmalar">
+            {% if item.kitob.telegram_havola %}
+              <a class="btn btn-ochish" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">O'qish</a>
+              <a class="btn btn-yuklash" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
+            {% elif item.kitob.fayl %}
+              <a class="btn btn-ochish" href="{{ url_for('ochish', bolim=item.bolim, idx=item.idx) }}">O'qish</a>
+              <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + item.kitob.fayl) }}" download>Yuklab</a>
+            {% endif %}
+          </div>
         </div>
       </div>
       {% endfor %}
@@ -535,6 +545,7 @@ HTML = """
               <a class="btn btn-ochish" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">O'qish</a>
               <a class="btn btn-yuklash" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
             {% elif item.kitob.fayl %}
+              <a class="btn btn-ochish" href="{{ url_for('ochish', bolim=item.bolim, idx=item.idx) }}">O'qish</a>
               <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + item.kitob.fayl) }}" download>Yuklab</a>
             {% endif %}
           </div>
@@ -563,6 +574,8 @@ HTML = """
       <input type="text" name="yili" required>
       <label>Muqova rasmi:</label>
       <input type="file" name="muqova" accept="image/*">
+      <label>Kitob fayli (PDF):</label>
+      <input type="file" name="fayl" accept=".pdf">
       <label>Telegram kanalidagi kitob havolasi:</label>
       <input type="url" name="telegram_havola" placeholder="https://t.me/kanal/123" required>
       <small>Kitobni avval ochiq Telegram kanaliga yuklang, so'ng shu kanal yoki post havolasini kiriting.</small>
@@ -582,6 +595,8 @@ HTML = """
       <input type="text" name="yili" value="{{ kitob.yili }}" required>
       <label>Yangi muqova (ixtiyoriy):</label>
       <input type="file" name="muqova" accept="image/*">
+      <label>Yangi kitob fayli (PDF, ixtiyoriy):</label>
+      <input type="file" name="fayl" accept=".pdf">
       <label>Telegram kanalidagi kitob havolasi:</label>
       <input type="url" name="telegram_havola" value="{{ kitob.telegram_havola or '' }}" placeholder="https://t.me/kanal/123" required>
       <small>Kitobning Telegram kanalidagi yangi havolasini kiriting.</small>
@@ -1028,16 +1043,23 @@ def qoshish():
           return redirect(url_for("qoshish"))
         m = kitoblar_yuklash()
         muqova_nom = ""
+        fayl_nom = ""
         if "muqova" in request.files:
             f = request.files["muqova"]
             if f.filename:
                 muqova_nom = secure_filename(f.filename)
                 f.save(os.path.join(app.config["COVER_FOLDER"], muqova_nom))
+        if "fayl" in request.files:
+            f = request.files["fayl"]
+            if f.filename:
+                fayl_nom = secure_filename(f.filename)
+                f.save(os.path.join(app.config["UPLOAD_FOLDER"], fayl_nom))
         m[bolim].append({
             "nomi": nomi,
             "muallif": muallif,
             "yili": yili,
             "muqova": muqova_nom,
+            "fayl": fayl_nom,
             "telegram_havola": telegram_havola,
             "tomonidan": joriy_foydalanuvchi()["email"],
         })
@@ -1081,6 +1103,12 @@ def tahrirlash(bolim, idx):
                 nom = secure_filename(f.filename)
                 f.save(os.path.join(app.config["COVER_FOLDER"], nom))
                 m[bolim][idx]["muqova"] = nom
+        if "fayl" in request.files:
+            f = request.files["fayl"]
+            if f.filename:
+                nom = secure_filename(f.filename)
+                f.save(os.path.join(app.config["UPLOAD_FOLDER"], nom))
+                m[bolim][idx]["fayl"] = nom
         kitoblar_saqlash(m)
         return redirect(url_for("bosh_sahifa", _anchor=bolim_slug(bolim)))
     return render_template_string(HTML, sahifa="tahrirlash", bolimlar=BO_LIMLAR,
