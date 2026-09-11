@@ -12,6 +12,7 @@ import os
 import random
 import string
 import uuid
+from urllib.parse import urlparse
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -258,6 +259,18 @@ def bolim_slug(bolim):
 app.jinja_env.globals["bolim_slug"] = bolim_slug
 
 
+def telegram_havolasi_mi(havola):
+  """Faqat Telegram kanal yoki postining xavfsiz HTTPS havolasini qabul qiladi."""
+  try:
+    parsed = urlparse((havola or "").strip())
+  except ValueError:
+    return False
+  return parsed.scheme == "https" and parsed.netloc.lower().removeprefix("www.") in {
+    "t.me",
+    "telegram.me",
+  } and bool(parsed.path.strip("/"))
+
+
 HTML = """
 <!DOCTYPE html>
 <html lang="uz">
@@ -440,10 +453,11 @@ HTML = """
           <div class="karta-tana">
             <h3>{{ kitob.nomi }}</h3>
             <p class="qator"><span>{{ kitob.muallif }}</span><span>{{ kitob.yili }}</span></p>
-            <p class="qator yuklagan"><span>{% if kitob.fayl %}MB: {{ fayl_hajmi(kitob.fayl) }}{% endif %}</span><span>{{ foydalanuvchi_ismi(kitob.tomonidan) }}</span></p>
+            <p class="qator yuklagan"><span>{% if kitob.telegram_havola %}Telegram kanal{% elif kitob.fayl %}MB: {{ fayl_hajmi(kitob.fayl) }}{% endif %}</span><span>{{ foydalanuvchi_ismi(kitob.tomonidan) }}</span></p>
             <div class="tugmalar">
-              {% if kitob.fayl %}
-                <a class="btn btn-ochish" href="{{ url_for('ochish', bolim=bolim, idx=loop.index0) }}">O'qish</a>
+              {% if kitob.telegram_havola %}
+                <a class="btn btn-yuklash" href="{{ kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
+              {% elif kitob.fayl %}
                 <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + kitob.fayl) }}" download>Yuklab</a>
               {% endif %}
               {% if foydalanuvchi and (kitob.tomonidan == foydalanuvchi.email or foydalanuvchi.rol == 'admin') %}
@@ -516,8 +530,9 @@ HTML = """
           <h3>{{ item.kitob.nomi }}</h3>
           <p class="qator"><span>{{ item.kitob.muallif }}</span><span>{{ item.kitob.yili }}</span></p>
           <div class="tugmalar">
-            {% if item.kitob.fayl %}
-              <a class="btn btn-ochish" href="{{ url_for('ochish', bolim=item.bolim, idx=item.idx) }}">O'qish</a>
+            {% if item.kitob.telegram_havola %}
+              <a class="btn btn-yuklash" href="{{ item.kitob.telegram_havola }}" target="_blank" rel="noopener">Telegramdan yuklash</a>
+            {% elif item.kitob.fayl %}
               <a class="btn btn-yuklash" href="{{ url_for('static', filename='files/' + item.kitob.fayl) }}" download>Yuklab</a>
             {% endif %}
           </div>
@@ -546,8 +561,9 @@ HTML = """
       <input type="text" name="yili" required>
       <label>Muqova rasmi:</label>
       <input type="file" name="muqova" accept="image/*">
-      <label>Kitob fayli (PDF):</label>
-      <input type="file" name="fayl" accept=".pdf">
+      <label>Telegram kanalidagi kitob havolasi:</label>
+      <input type="url" name="telegram_havola" placeholder="https://t.me/kanal/123" required>
+      <small>Kitobni avval ochiq Telegram kanaliga yuklang, so'ng shu kanal yoki post havolasini kiriting.</small>
       <button type="submit">Saqlash</button>
     </form>
 
@@ -564,8 +580,9 @@ HTML = """
       <input type="text" name="yili" value="{{ kitob.yili }}" required>
       <label>Yangi muqova (ixtiyoriy):</label>
       <input type="file" name="muqova" accept="image/*">
-      <label>Yangi PDF (ixtiyoriy):</label>
-      <input type="file" name="fayl" accept=".pdf">
+      <label>Telegram kanalidagi kitob havolasi:</label>
+      <input type="url" name="telegram_havola" value="{{ kitob.telegram_havola or '' }}" placeholder="https://t.me/kanal/123" required>
+      <small>Kitobning Telegram kanalidagi yangi havolasini kiriting.</small>
       <button type="submit">Saqlash</button>
     </form>
 
@@ -997,31 +1014,29 @@ def qoshish():
         nomi = request.form.get("nomi", "").strip()
         muallif = request.form.get("muallif", "").strip()
         yili = request.form.get("yili", "").strip()
+        telegram_havola = request.form.get("telegram_havola", "").strip()
         if bolim not in BO_LIMLAR:
             flash("Noto'g'ri bo'lim tanlandi", "xato")
             return redirect(url_for("qoshish"))
         if not nomi or not muallif or not yili:
             flash("Kitob nomi, muallif va yili to'ldirilishi shart", "xato")
             return redirect(url_for("qoshish"))
+        if not telegram_havolasi_mi(telegram_havola):
+          flash("Telegram havolasi https://t.me/... yoki https://telegram.me/... ko'rinishida bo'lishi kerak", "xato")
+          return redirect(url_for("qoshish"))
         m = kitoblar_yuklash()
         muqova_nom = ""
-        fayl_nom = ""
         if "muqova" in request.files:
             f = request.files["muqova"]
             if f.filename:
                 muqova_nom = secure_filename(f.filename)
                 f.save(os.path.join(app.config["COVER_FOLDER"], muqova_nom))
-        if "fayl" in request.files:
-            f = request.files["fayl"]
-            if f.filename:
-                fayl_nom = secure_filename(f.filename)
-                f.save(os.path.join(app.config["UPLOAD_FOLDER"], fayl_nom))
         m[bolim].append({
             "nomi": nomi,
             "muallif": muallif,
             "yili": yili,
             "muqova": muqova_nom,
-            "fayl": fayl_nom,
+            "telegram_havola": telegram_havola,
             "tomonidan": joriy_foydalanuvchi()["email"],
         })
         kitoblar_saqlash(m)
@@ -1047,24 +1062,23 @@ def tahrirlash(bolim, idx):
         nomi = request.form.get("nomi", "").strip()
         muallif = request.form.get("muallif", "").strip()
         yili = request.form.get("yili", "").strip()
+        telegram_havola = request.form.get("telegram_havola", "").strip()
         if not nomi or not muallif or not yili:
             flash("Kitob nomi, muallif va yili to'ldirilishi shart", "xato")
             return redirect(url_for("tahrirlash", bolim=bolim, idx=idx))
+        if not telegram_havolasi_mi(telegram_havola):
+          flash("Telegram havolasi https://t.me/... yoki https://telegram.me/... ko'rinishida bo'lishi kerak", "xato")
+          return redirect(url_for("tahrirlash", bolim=bolim, idx=idx))
         m[bolim][idx]["nomi"] = nomi
         m[bolim][idx]["muallif"] = muallif
         m[bolim][idx]["yili"] = yili
+        m[bolim][idx]["telegram_havola"] = telegram_havola
         if "muqova" in request.files:
             f = request.files["muqova"]
             if f.filename:
                 nom = secure_filename(f.filename)
                 f.save(os.path.join(app.config["COVER_FOLDER"], nom))
                 m[bolim][idx]["muqova"] = nom
-        if "fayl" in request.files:
-            f = request.files["fayl"]
-            if f.filename:
-                nom = secure_filename(f.filename)
-                f.save(os.path.join(app.config["UPLOAD_FOLDER"], nom))
-                m[bolim][idx]["fayl"] = nom
         kitoblar_saqlash(m)
         return redirect(url_for("bosh_sahifa", _anchor=bolim_slug(bolim)))
     return render_template_string(HTML, sahifa="tahrirlash", bolimlar=BO_LIMLAR,

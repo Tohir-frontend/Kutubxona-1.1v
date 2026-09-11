@@ -8,22 +8,25 @@ Python'da yozilgan oddiy konsol kutubxona tizimi.
 - Maxsus fanlar
 - Badiiy adabiyotlar
 
-## Ishga tushirish
+## Konsol versiyasini ishga tushirish
 ```
-python Kutubxona/main.py
+python main.py
 ```
 
 ## Web versiyasini ishga tushirish
 ```powershell
-python Kutubxona/web.py
+python web.py
 ```
 
 Keyin brauzerda `http://127.0.0.1:5000/` manzilini oching. Brauzerda `ERR_CONNECTION_REFUSED` chiqsa, Flask serveri hali ishga tushirilmagan bo'ladi.
 
 ## Imkoniyatlar
 - Bo'limlarni ko'rish
-- Yangi kitob qo'shish
+- Telegram kanalidagi kitob havolasini qo'shish
 - Bo'lim bo'yicha kitoblarni ko'rish
 - Kitob qidirish (nom yoki muallif bo'yicha)
+- Telegram kanaliga o'tib kitobni yuklab olish
 
-Ma'lumotlar `Kutubxona/kutubxona.json` faylida saqlanadi.
+Kitob ma'lumotlari `kutubxona.json` faylida saqlanadi. Kitob qo'shishda avval
+kitobni ochiq Telegram kanaliga yuklang, so'ng kanal yoki post havolasini saytga
+kiriting. Saytdagi `Telegramdan yuklash` tugmasi foydalanuvchini shu havolaga olib boradi.
